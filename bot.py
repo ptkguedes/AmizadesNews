@@ -1,9 +1,9 @@
 import os
 import requests
+from datetime import datetime, timedelta
 from telegram import Bot
-from telegram.ext import ApplicationBuilder, ContextTypes
+from telegram.ext import ApplicationBuilder, CallbackContext
 from dotenv import load_dotenv
-import sys
 
 # Carrega variáveis do .env
 load_dotenv()
@@ -11,65 +11,56 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 CHAT_ID = os.getenv("CHAT_ID")
 
-# Define o turno (manha, almoco, tarde)
-TURNO = "manha"
-if len(sys.argv) > 1 and sys.argv[1].startswith("--turno="):
-    TURNO = sys.argv[1].split("=")[1]
+# Lista de temas que se repete a cada 7 horas
+temas = ["fofoca", "mundo", "esporte", "politica", "entretenimento", "fofoca", "esporte"]
 
-# Saudação personalizada por turno
-saudacoes = {
-    "manha": "Bom dia ☀️",
-    "almoco": "Boa tarde, aproveite sua pausa 🍽️",
-    "tarde": "Boa tarde 🌇"
-}
-saudacao = saudacoes.get(TURNO, "Olá")
-
-# Nome da edição por turno
-edicoes = {
-    "manha": "Edição da Manhã",
-    "almoco": "Edição do Almoço",
-    "tarde": "Edição da Tarde"
-}
-nome_edicao = edicoes.get(TURNO, "Edição Especial")
-
-# Função principal que envia as notícias
-async def enviar_noticias(context: ContextTypes.DEFAULT_TYPE):
-    url = f"https://newsapi.org/v2/everything?q=brasil&language=pt&sortBy=publishedAt&apiKey={NEWSAPI_KEY}"
+# Função para buscar notícia por tema
+def buscar_noticia_por_tema(tema):
+    url = f"https://newsapi.org/v2/everything?q={tema}&language=pt&sortBy=publishedAt&pageSize=1&apiKey={NEWSAPI_KEY}"
     resposta = requests.get(url)
     dados = resposta.json()
+    return dados.get("articles", [])[0] if dados.get("articles") else None
 
-    artigos = dados.get("articles", [])[:5]
-    if not artigos:
-        await context.bot.send_message(chat_id=CHAT_ID, text=f"{saudacao}, sem notícias disponíveis no momento.")
+# Função para enviar notícia no horário agendado
+def enviar_noticia_tematica(context: CallbackContext):
+    tema = context.job.data
+    noticia = buscar_noticia_por_tema(tema)
+    if not noticia:
+        context.bot.send_message(chat_id=CHAT_ID, text=f"🕒 Nenhuma notícia encontrada sobre *{tema}* agora.", parse_mode="Markdown")
         return
 
-    # Mensagem de abertura
-    await context.bot.send_message(
-        chat_id=CHAT_ID,
-        text=f"{saudacao}, aqui está sua *{nome_edicao}* do Jornal Amizades 🗞️:",
-        parse_mode="Markdown"
-    )
+    titulo = noticia.get("title", "Sem título")
+    descricao = noticia.get("description", "")
+    url_noticia = noticia.get("url", "")
+    imagem = noticia.get("urlToImage", None)
 
-    # Envia cada notícia
-    for artigo in artigos:
-        titulo = artigo.get("title", "Sem título")
-        descricao = artigo.get("description", "")
-        url_noticia = artigo.get("url", "")
-        imagem = artigo.get("urlToImage", None)
+    texto = f"🕒 *{tema.upper()}*\n\n📰 *{titulo}*\n\n_{descricao}_\n\n[Leia mais]({url_noticia})"
 
-        texto = f"📰 *{titulo}*\n\n_{descricao}_\n\n[Leia mais]({url_noticia})"
+    if imagem:
+        context.bot.send_photo(chat_id=CHAT_ID, photo=imagem, caption=texto, parse_mode="Markdown")
+    else:
+        context.bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
 
-        if imagem:
-            await context.bot.send_photo(chat_id=CHAT_ID, photo=imagem, caption=texto, parse_mode="Markdown")
-        else:
-            await context.bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
-
-# Inicializa o bot
+# Início do bot e agendamento das 24 horas
 if __name__ == "__main__":
     try:
-        print("Iniciando o Jornal Amizades...")
-        app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-        app.job_queue.run_once(enviar_noticias, when=0)
+        print("🟢 Iniciando Jornal Amizades por hora...")
+        app = ApplicationBuilder().token(TELEGRAM_TOKEN).arbitrary_callback_data(True).build()
+
+        # Defina o horário inicial aqui (formato HH:MM)
+        hora_inicial = datetime.strptime("14:30", "%H:%M")
+        agora = datetime.now()
+        inicio = agora.replace(hour=hora_inicial.hour, minute=hora_inicial.minute, second=0, microsecond=0)
+        if inicio < agora:
+            inicio += timedelta(days=1)
+
+        # Agenda 24 postagens com temas cíclicos
+        for i in range(24):
+            tema = temas[i % len(temas)]
+            horario = inicio + timedelta(hours=i)
+            delay = (horario - agora).total_seconds()
+            app.job_queue.run_once(enviar_noticia_tematica, when=delay, data=tema)
+
         app.run_polling()
     except Exception as e:
         print("❌ Erro ao iniciar o bot:")
