@@ -1,4 +1,4 @@
 name: jornal-amizades
 type: python
-main: bot_jornal_amizades.py
-python: 3.11
+main: bot.py
+python: 3.13
