@@ -66,6 +66,11 @@ async def enviar_noticias(context: ContextTypes.DEFAULT_TYPE):
 
 # Inicializa o bot
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.job_queue.run_once(enviar_noticias, when=0)
-    app.run_polling()
+    try:
+        print("Iniciando o Jornal Amizades...")
+        app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+        app.job_queue.run_once(enviar_noticias, when=0)
+        app.run_polling()
+    except Exception as e:
+        print("❌ Erro ao iniciar o bot:")
+        print(e)
