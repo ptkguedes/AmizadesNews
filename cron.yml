@@ -1,5 +1,7 @@
 cron:
   - schedule: "35 7 * * *"
-    command: "python bot_jornal_amizades.py --turno=manha"
+    command: "python bot.py --turno=manha"
+  - schedule: "30 13 * * *"
+    command: "python bot.py --turno=almoco"
   - schedule: "40 17 * * *"
-    command: "python bot_jornal_amizades.py --turno=tarde"
+    command: "python bot.py --turno=tarde"
