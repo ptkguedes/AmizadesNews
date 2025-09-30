@@ -4,11 +4,19 @@ from datetime import datetime, timedelta
 from telegram.ext import ApplicationBuilder, CallbackContext
 from dotenv import load_dotenv
 
-# Carrega variáveis do .env
+# Carrega variáveis do .env (usado localmente, ignorado no Discloud)
 load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
-CHAT_ID = os.getenv("CHAT_ID")
+
+# Informações pessoais inseridas diretamente
+TELEGRAM_TOKEN = "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"  # Token do BotFather
+NEWSAPI_KEY = "sua_chave_newsapi_aqui"                   # Chave da NewsAPI
+CHAT_ID = "1234567890"                                   # ID do chat ou grupo
+
+# Verificação de variáveis obrigatórias
+if not TELEGRAM_TOKEN or not NEWSAPI_KEY or not CHAT_ID:
+    print("❌ Erro: Variáveis de ambiente ausentes ou inválidas.")
+    print("Certifique-se de definir TELEGRAM_TOKEN, NEWSAPI_KEY e CHAT_ID corretamente.")
+    exit(1)
 
 temas = ["fofoca", "mundo", "esporte", "politica", "entretenimento", "fofoca", "esporte"]
 
