@@ -1,65 +1,46 @@
-import requests
-import time
 import os
-import argparse
+import requests
 from telegram import Bot
+from telegram.ext import ApplicationBuilder, ContextTypes
 from dotenv import load_dotenv
+import sys
 
-# 🔐 Carrega variáveis do .env
 load_dotenv()
+
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
-CHAT_ID = os.getenv("CHAT_ID")  # ID do canal ou grupo
+CHAT_ID = os.getenv("CHAT_ID")
 
-bot = Bot(token=TELEGRAM_TOKEN)
+TURNO = "manha"
+if len(sys.argv) > 1 and sys.argv[1].startswith("--turno="):
+    TURNO = sys.argv[1].split("=")[1]
 
-# 🎯 Detecta o turno (manha ou tarde)
-parser = argparse.ArgumentParser()
-parser.add_argument("--turno", choices=["manha", "tarde"], default="manha")
-args = parser.parse_args()
-turno = args.turno
-
-# 📰 Busca notícias da NewsAPI
-def obter_noticias():
-    url = f"https://newsapi.org/v2/top-headlines?country=br&language=pt&apiKey={NEWSAPI_KEY}"
+async def enviar_noticias(context: ContextTypes.DEFAULT_TYPE):
+    saudacao = "Bom dia" if TURNO == "manha" else "Boa tarde"
+    url = f"https://newsapi.org/v2/everything?q=brasil&language=pt&sortBy=publishedAt&apiKey={NEWSAPI_KEY}"
     resposta = requests.get(url)
     dados = resposta.json()
-    return dados["articles"][:8]  # pega as 8 primeiras
 
-# 🧵 Envia o jornal como fio
-def enviar_jornal():
-    noticias = obter_noticias()
+    artigos = dados.get("articles", [])[:5]
+    if not artigos:
+        await context.bot.send_message(chat_id=CHAT_ID, text=f"{saudacao}, sem notícias disponíveis no momento.")
+        return
 
-    # ✨ Mensagem editorial personalizada
-    saudacao = "Bom dia" if turno == "manha" else "Boa tarde"
-    manchetes = [f"• {n['title']}" for n in noticias]
-    editorial = (
-        f"🗞️ {saudacao}, caros leitores do Jornal Amizades!\n\n"
-        "Hoje você começa seu dia com as seguintes notícias:\n"
-        + "\n".join(manchetes) +
-        "\n\nTudo isso e muito mais. Vamos juntos?\n👇"
-    )
-    bot.send_message(chat_id=CHAT_ID, text=editorial, disable_notification=True)
+    await context.bot.send_message(chat_id=CHAT_ID, text=f"{saudacao}, aqui está sua edição do Jornal Amizades 🗞️:")
 
-    # 📤 Envia cada notícia como mensagem separada
-    for noticia in noticias:
-        titulo = noticia["title"]
-        resumo = noticia["description"] or "Resumo não disponível."
-        fonte = noticia["source"]["name"]
-        imagem = noticia["urlToImage"]
+    for artigo in artigos:
+        titulo = artigo.get("title", "Sem título")
+        descricao = artigo.get("description", "")
+        url_noticia = artigo.get("url", "")
+        imagem = artigo.get("urlToImage", None)
 
-        texto = f"📰 {titulo}\n\n{resumo}\n\n📍 Fonte: {fonte}\n\nPróxima notícia 👇"
+        texto = f"📰 *{titulo}*\n\n_{descricao}_\n\n[Leia mais]({url_noticia})"
+        if imagem:
+            await context.bot.send_photo(chat_id=CHAT_ID, photo=imagem, caption=texto, parse_mode="Markdown")
+        else:
+            await context.bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
 
-        try:
-            if imagem:
-                bot.send_photo(chat_id=CHAT_ID, photo=imagem, caption=texto, disable_notification=True)
-            else:
-                bot.send_message(chat_id=CHAT_ID, text=texto, disable_notification=True)
-        except Exception as e:
-            print(f"Erro ao enviar notícia: {e}")
-
-        time.sleep(5)  # espaçamento entre mensagens
-
-# 🚀 Executa o envio
 if __name__ == "__main__":
-    enviar_jornal()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.job_queue.run_once(enviar_noticias, when=0)
+    app.run_polling()
