@@ -7,18 +7,18 @@ from dotenv import load_dotenv
 # Carrega variáveis do .env (usado localmente, ignorado no Discloud)
 load_dotenv()
 
-# Informações pessoais inseridas diretamente
-TELEGRAM_TOKEN = "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"  # Token do BotFather
-NEWSAPI_KEY = "sua_chave_newsapi_aqui"                   # Chave da NewsAPI
-CHAT_ID = "1234567890"                                   # ID do chat ou grupo
+# Variáveis de ambiente
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ")
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "sua_chave_newsapi_aqui")
+CHAT_ID = os.getenv("CHAT_ID", "1234567890")
 
 # Verificação de variáveis obrigatórias
 if not TELEGRAM_TOKEN or not NEWSAPI_KEY or not CHAT_ID:
     print("❌ Erro: Variáveis de ambiente ausentes ou inválidas.")
-    print("Certifique-se de definir TELEGRAM_TOKEN, NEWSAPI_KEY e CHAT_ID corretamente.")
     exit(1)
 
-temas = ["fofoca", "mundo", "esporte", "politica", "entretenimento", "fofoca", "esporte"]
+# Ordem temática fixa
+temas = ["fofoca", "esporte", "politica", "entretenimento", "mundo", "celebridades"]
 
 def buscar_noticia_por_tema(tema):
     url = f"https://newsapi.org/v2/everything?q={tema}&language=pt&sortBy=publishedAt&pageSize=1&apiKey={NEWSAPI_KEY}"
@@ -26,9 +26,10 @@ def buscar_noticia_por_tema(tema):
     dados = resposta.json()
     return dados.get("articles", [])[0] if dados.get("articles") else None
 
-async def enviar_noticia_tematica(context: CallbackContext):
+async def enviar_noticia(context: CallbackContext):
     tema = context.job.data
     noticia = buscar_noticia_por_tema(tema)
+
     if not noticia:
         await context.bot.send_message(chat_id=CHAT_ID, text=f"🕒 Nenhuma notícia encontrada sobre *{tema}* agora.", parse_mode="Markdown")
         return
@@ -45,24 +46,31 @@ async def enviar_noticia_tematica(context: CallbackContext):
     else:
         await context.bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
 
+async def main():
+    print("🟢 Iniciando Jornal Amizades por hora...")
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    hora_inicial = datetime.strptime("07:00", "%H:%M")  # horário de início
+    agora = datetime.now()
+    inicio = agora.replace(hour=hora_inicial.hour, minute=hora_inicial.minute, second=0, microsecond=0)
+    if inicio < agora:
+        inicio += timedelta(days=1)
+
+    for i in range(24):
+        tema = temas[i % len(temas)]
+        horario = inicio + timedelta(hours=i)
+        delay = (horario - agora).total_seconds()
+        app.job_queue.run_once(enviar_noticia, when=delay, data=tema)
+
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()
+
 if __name__ == "__main__":
+    import asyncio
     try:
-        print("🟢 Iniciando Jornal Amizades por hora...")
-        app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-
-        hora_inicial = datetime.strptime("19:21", "%H:%M")
-        agora = datetime.now()
-        inicio = agora.replace(hour=hora_inicial.hour, minute=hora_inicial.minute, second=0, microsecond=0)
-        if inicio < agora:
-            inicio += timedelta(days=1)
-
-        for i in range(24):
-            tema = temas[i % len(temas)]
-            horario = inicio + timedelta(hours=i)
-            delay = (horario - agora).total_seconds()
-            app.job_queue.run_once(enviar_noticia_tematica, when=delay, data=tema)
-
-        app.run_polling()
+        asyncio.run(main())
     except Exception as e:
         print("❌ Erro ao iniciar o bot:")
         print(e)
