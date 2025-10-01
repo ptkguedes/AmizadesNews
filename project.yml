@@ -1,4 +1,0 @@
-name: jornal-amizades
-type: python
-main: bot.py
-python: 3.13
