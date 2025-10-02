@@ -31,8 +31,7 @@ frases_abertura = [
     "Fim do dia, boa noite a todos e até amanhã."
 ]
 
-horarios = 
-[
+horarios = [
     time(9, 12),  # 06:12 BRT
     time(12, 12), # 09:12 BRT
     time(15, 12), # 12:12 BRT
