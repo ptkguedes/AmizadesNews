@@ -28,7 +28,7 @@ frases_abertura = [
     "Fim de tarde chegando, confira as últimas.",
     "Boa noite! Veja o que está acontecendo agora.",
     "Última edição da noite chegando quente.",
-    "Meia-noite chegou, e as notícias não param."
+    "Fim do dia, boa noite a todos e até amanhã."
 ]
 
 horarios = 
