@@ -31,9 +31,15 @@ frases_abertura = [
     "Meia-noite chegou, e as notícias não param."
 ]
 
-horarios = [
-    time(6, 12), time(9, 12), time(12, 12),
-    time(15, 12), time(18, 12), time(21, 12), time(23, 12)
+horarios = 
+[
+    time(9, 12),  # 06:12 BRT
+    time(12, 12), # 09:12 BRT
+    time(15, 12), # 12:12 BRT
+    time(18, 12), # 15:12 BRT
+    time(21, 12), # 18:12 BRT
+    time(0, 12),  # 21:12 BRT
+    time(2, 12)   # 23:12 BRT
 ]
 
 # Palavras proibidas para filtrar conteúdo sensível
