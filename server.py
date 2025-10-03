@@ -5,7 +5,6 @@ from bot import enviar_edicao, carregar_titulos
 
 app = Flask(__name__)
 bot = Bot(token=os.getenv("TELEGRAM_TOKEN"))
-CHAT_ID = int(os.getenv("CHAT_ID"))
 
 @app.route("/")
 def home():
@@ -25,4 +24,4 @@ def executar_edicao():
     return "Edição enviada!", 200
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=8080)
