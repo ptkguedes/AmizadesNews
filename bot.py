@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = int(os.getenv("CHAT_ID"))
+GROUP_ID = int(os.getenv("GROUP_ID"))
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 ENDPOINT_EXECUTAR = os.getenv("ENDPOINT_EXECUTAR")
 
@@ -106,7 +107,7 @@ def buscar_noticia_manual(tema):
 def enviar_link_util(bot, tema):
     url = f"https://news.google.com/search?q={tema}"
     texto = f"⚠️ Nenhuma notícia segura encontrada sobre *{tema}*. Veja mais em [Google News]({url})"
-    bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
+    bot.send_message(chat_id=GROUP_ID, text=texto, parse_mode="Markdown")
 
 def enviar_noticia_formatada(bot, noticia, tema):
     titulo = noticia.get("title", "Sem título")
@@ -116,9 +117,9 @@ def enviar_noticia_formatada(bot, noticia, tema):
     emoji = emojis_por_tema.get(tema, "📰")
     texto = f"{emoji} *{tema.upper()}*\n\n📰 *{titulo}*\n_{resumo}_\n\n[Leia mais]({url})"
     if imagem:
-        bot.send_photo(chat_id=CHAT_ID, photo=imagem, caption=texto, parse_mode="Markdown")
+        bot.send_photo(chat_id=GROUP_ID, photo=imagem, caption=texto, parse_mode="Markdown")
     else:
-        bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
+        bot.send_message(chat_id=GROUP_ID, text=texto, parse_mode="Markdown")
 
 def obter_noticia_segura(tema):
     noticia = buscar_noticia(tema)
@@ -133,7 +134,7 @@ def enviar_edicao(context):
     frase = context["job"]["context"]["frase"]
     temas_edicao = context["job"]["context"]["temas"]
     bot = context["bot"]
-    bot.send_message(chat_id=CHAT_ID, text=frase)
+    bot.send_message(chat_id=GROUP_ID, text=frase)
     for tema in temas_edicao:
         noticia = obter_noticia_segura(tema)
         if not noticia:
@@ -144,15 +145,19 @@ def enviar_edicao(context):
 def comando_teste(update: Update, context):
     global ultimo_teste
     chat = update.effective_chat
-    if chat.type != "private" or chat.id != CHAT_ID:
+
+    if chat.type != "private" or chat.id != ADMIN_ID:
         update.message.reply_text("Este comando só pode ser usado pelo administrador em chat privado.")
         return
+
     agora = time.time()
     if agora - ultimo_teste < INTERVALO_TESTE:
         update.message.reply_text("Aguarde um pouco antes de usar o comando novamente.")
         return
+
     ultimo_teste = agora
     update.message.reply_text("conteúdo teste sendo enviado ao grupo")
+
     try:
         resposta = requests.get(ENDPOINT_EXECUTAR)
         if resposta.status_code == 200:
