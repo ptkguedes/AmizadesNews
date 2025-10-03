@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: jornal-amizades
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: GROUP_ID
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: ENDPOINT_EXECUTAR
+        sync: false
+    pythonVersion: 3.10
