@@ -1,2 +1,2 @@
 # AmizadesNews
-Bot jjornalístico
+Bot jornalístico
