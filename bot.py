@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ")
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "sua_chave_newsapi_aqui")
-CHAT_ID = int(os.getenv("CHAT_ID", "1234567890"))
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
+CHAT_ID = int(os.getenv("CHAT_ID"))
 
 frases_abertura = [
     "Bom dia leitores, começamos com a primeira edição do jornal da manhã.",
@@ -84,7 +84,7 @@ def buscar_noticia(tema):
     resposta = requests.get(url)
 
     if resposta.status_code != 200:
-        print(f"[ERRO] Falha na NewsAPI para tema '{tema}': {resposta.status_code}")
+        print(f"[ERRO] NewsAPI falhou para tema '{tema}'")
         return None
 
     dados = resposta.json()
@@ -98,30 +98,47 @@ def buscar_noticia(tema):
         publicado = artigo.get("publishedAt", "")
 
         if titulo in noticias_enviadas:
-            print(f"[SKIP] Título já enviado: {titulo}")
             continue
         if conteudo_inadequado(titulo) or conteudo_inadequado(descricao):
-            print(f"[SKIP] Conteúdo inadequado detectado")
             continue
         if imagem and any(p in imagem for p in palavras_proibidas):
-            print(f"[SKIP] Imagem bloqueada")
             continue
 
         try:
             publicado_dt = datetime.fromisoformat(publicado.replace("Z", "+00:00"))
             if datetime.utcnow() - publicado_dt > timedelta(hours=24):
-                print(f"[SKIP] Notícia antiga: {publicado_dt}")
                 continue
-        except Exception as e:
-            print(f"[ERRO] Falha ao interpretar data: {e}")
+        except:
             continue
 
         noticias_enviadas.add(titulo)
         artigo["resumo"] = resumir_texto(descricao)
-        print(f"[OK] Notícia selecionada: {titulo}")
         return artigo
 
-    print(f"[INFO] Nenhuma notícia válida encontrada para tema '{tema}'")
+    return None
+
+def buscar_noticia_manual(tema):
+    fontes = {
+        "politica": {
+            "titulo": "Ministro do Planalto nega saída do cargo: “Fofoca e cerco político”",
+            "resumo": "Márcio Macêdo minimiza rumores e diz que nunca tratou saída com o presidente.",
+            "url": "https://www.metropoles.com/brasil/ministro-do-planalto-nega-saida-do-cargo-fofoca-e-cerco-politico"
+        },
+        "fofoca": {
+            "titulo": "Márcio Macêdo ironiza rumores: “Já posso pedir música no Fantástico”",
+            "resumo": "Ministro brinca com especulações sobre sua saída do governo e chama de fofoca política.",
+            "url": "https://www.otempo.com.br/politica/governo/2025/9/26/cerco-politico-e-fofoca-marcio-macedo-minimiza-rumores-de-saida-do-governo-lula"
+        }
+    }
+
+    if tema in fontes:
+        noticia = fontes[tema]
+        noticia["resumo"] = resumir_texto(noticia["resumo"])
+        noticia["title"] = noticia["titulo"]
+        noticia["url"] = noticia["url"]
+        noticia["urlToImage"] = None
+        return noticia
+
     return None
 
 def enviar_edicao(context):
@@ -134,6 +151,9 @@ def enviar_edicao(context):
 
     for tema in temas_edicao:
         noticia = buscar_noticia(tema)
+        if not noticia:
+            noticia = buscar_noticia_manual(tema)
+
         if not noticia:
             fallback_url = f"https://news.google.com/search?q={tema}"
             texto_fallback = f"⚠️ Nenhuma notícia segura encontrada sobre *{tema}*. Veja mais em [Google News]({fallback_url})"
@@ -154,7 +174,7 @@ def enviar_edicao(context):
             bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
 
 def main():
-    print("🟢 Iniciando Jornal Amizades com agendamento fixo, temas por horário e fallback garantido...")
+    print("🟢 Iniciando Jornal Amizades com entrega garantida por tema...")
     updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
     job_queue: JobQueue = updater.job_queue
 
