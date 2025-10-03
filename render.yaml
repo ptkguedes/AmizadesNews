@@ -13,4 +13,3 @@ services:
         sync: false
       - key: ENDPOINT_EXECUTAR
         sync: false
-    pythonVersion: 3.10
