@@ -12,16 +12,15 @@ NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "sua_chave_newsapi_aqui")
 CHAT_ID = int(os.getenv("CHAT_ID", "1234567890"))
 
 frases_abertura = [
-    "Bom dia leitores, começamos com a primeira edição do jornal da manhã.",     # 06:12
-    "Hora do café! Vamos às manchetes da manhã.",                                # 09:12
-    "Boa tarde! Aqui está o jornal do almoço.",                                  # 12:12
-    "Fim de tarde chegando, confira as últimas.",                                # 15:12
-    "Boa noite! Veja o que está acontecendo agora.",                             # 18:12
-    "Última edição da noite chegando quente.",                                   # 21:12
-    "Fim do dia, boa noite a todos e até amanhã."                                # 23:12
+    "Bom dia leitores, começamos com a primeira edição do jornal da manhã.",
+    "Hora do café! Vamos às manchetes da manhã.",
+    "Boa tarde! Aqui está o jornal do almoço.",
+    "Fim de tarde chegando, confira as últimas.",
+    "Boa noite! Veja o que está acontecendo agora.",
+    "Última edição da noite chegando quente.",
+    "Fim do dia, boa noite a todos e até amanhã."
 ]
 
-# Horários em UTC para bater com Brasília (UTC-3)
 horarios = [
     time(9, 12),  # 06:12 BRT
     time(12, 12), # 09:12 BRT
@@ -32,7 +31,6 @@ horarios = [
     time(2, 12)   # 23:12 BRT
 ]
 
-# Temas fixos por horário
 temas_por_horario = [
     ["fofoca", "celebridades"],
     ["esporte", "mundo"],
@@ -43,16 +41,13 @@ temas_por_horario = [
     ["fofoca", "politica"]
 ]
 
-# Palavras proibidas para filtrar conteúdo sensível
 palavras_proibidas = [
     "porn", "sexo", "sexual", "gore", "sangue", "assassinato",
     "violência", "explícito", "erótico", "nude", "suicídio", "decapitação"
 ]
 
-# Títulos já enviados para evitar repetição
 noticias_enviadas = set()
 
-# Palavras-chave por tema
 palavras_chave = {
     "fofoca": "fofoca OR escândalo OR celebridades",
     "esporte": "esporte OR futebol OR campeonato OR olimpíadas",
@@ -62,7 +57,6 @@ palavras_chave = {
     "celebridades": "celebridades OR famosos OR artistas OR influenciadores"
 }
 
-# Emojis por tema
 emojis_por_tema = {
     "fofoca": "🕵️",
     "esporte": "⚽",
@@ -88,8 +82,14 @@ def buscar_noticia(tema):
     query = palavras_chave.get(tema, tema)
     url = f"https://newsapi.org/v2/everything?q={query}&language=pt&sortBy=publishedAt&pageSize=5&apiKey={NEWSAPI_KEY}"
     resposta = requests.get(url)
+
+    if resposta.status_code != 200:
+        print(f"[ERRO] Falha na NewsAPI para tema '{tema}': {resposta.status_code}")
+        return None
+
     dados = resposta.json()
     artigos = dados.get("articles", [])
+    print(f"[INFO] {len(artigos)} artigos recebidos para tema '{tema}'")
 
     for artigo in artigos:
         titulo = artigo.get("title", "")
@@ -98,23 +98,30 @@ def buscar_noticia(tema):
         publicado = artigo.get("publishedAt", "")
 
         if titulo in noticias_enviadas:
+            print(f"[SKIP] Título já enviado: {titulo}")
             continue
         if conteudo_inadequado(titulo) or conteudo_inadequado(descricao):
+            print(f"[SKIP] Conteúdo inadequado detectado")
             continue
         if imagem and any(p in imagem for p in palavras_proibidas):
+            print(f"[SKIP] Imagem bloqueada")
             continue
 
         try:
             publicado_dt = datetime.fromisoformat(publicado.replace("Z", "+00:00"))
             if datetime.utcnow() - publicado_dt > timedelta(hours=24):
+                print(f"[SKIP] Notícia antiga: {publicado_dt}")
                 continue
-        except:
+        except Exception as e:
+            print(f"[ERRO] Falha ao interpretar data: {e}")
             continue
 
         noticias_enviadas.add(titulo)
         artigo["resumo"] = resumir_texto(descricao)
+        print(f"[OK] Notícia selecionada: {titulo}")
         return artigo
 
+    print(f"[INFO] Nenhuma notícia válida encontrada para tema '{tema}'")
     return None
 
 def enviar_edicao(context):
@@ -123,11 +130,14 @@ def enviar_edicao(context):
     bot = context.bot
 
     bot.send_message(chat_id=CHAT_ID, text=f"🗞️ {frase}")
+    print(f"[ENVIO] Iniciando edição: {frase}")
 
     for tema in temas_edicao:
         noticia = buscar_noticia(tema)
         if not noticia:
-            bot.send_message(chat_id=CHAT_ID, text=f"Nenhuma notícia segura encontrada sobre *{tema}*.", parse_mode="Markdown")
+            fallback_url = f"https://news.google.com/search?q={tema}"
+            texto_fallback = f"⚠️ Nenhuma notícia segura encontrada sobre *{tema}*. Veja mais em [Google News]({fallback_url})"
+            bot.send_message(chat_id=CHAT_ID, text=texto_fallback, parse_mode="Markdown")
             continue
 
         titulo = noticia.get("title", "Sem título")
@@ -144,7 +154,7 @@ def enviar_edicao(context):
             bot.send_message(chat_id=CHAT_ID, text=texto, parse_mode="Markdown")
 
 def main():
-    print("🟢 Iniciando Jornal Amizades com agendamento fixo, temas por horário e filtro seguro...")
+    print("🟢 Iniciando Jornal Amizades com agendamento fixo, temas por horário e fallback garantido...")
     updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
     job_queue: JobQueue = updater.job_queue
 
