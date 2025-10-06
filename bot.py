@@ -1,49 +1,33 @@
 import os
 import json
-import requests
 import random
-import time
-from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler
+import requests
+from telegram import Bot
+from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv import load_dotenv
 
+# 🔧 Carregar variáveis de ambiente
 load_dotenv()
-
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID"))
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
-ENDPOINT_EXECUTAR = os.getenv("ENDPOINT_EXECUTAR")
 
+# 🤖 Inicializar bot e agendador
+bot = Bot(token=TELEGRAM_TOKEN)
+scheduler = BlockingScheduler()
 noticias_enviadas = set()
-ultimo_teste = 0
-INTERVALO_TESTE = 600  # 10 minutos
 
-palavras_chave = {
-    "fofoca": "fofoca OR escândalo OR celebridades",
-    "esporte": "esporte OR futebol OR campeonato OR olimpíadas",
-    "politica": "política OR governo OR eleições OR congresso OR presidente",
-    "entretenimento": "entretenimento OR cinema OR séries OR música",
-    "mundo": "mundo OR internacional OR global OR ONU",
-    "celebridades": "celebridades OR famosos OR artistas OR influenciadores"
+# 🎯 Temas disponíveis
+temas_disponiveis = {
+    "politica": "política OR governo OR eleições",
+    "esporte": "esporte OR futebol OR campeonato",
+    "cultura": "cultura OR cinema OR música",
+    "mundo": "internacional OR ONU OR global",
+    "ciência": "ciência OR tecnologia OR descobertas",
+    "celebridades": "celebridades OR famosos OR artistas"
 }
 
-emojis_por_tema = {
-    "fofoca": "🕵️",
-    "esporte": "⚽",
-    "politica": "🗳️",
-    "entretenimento": "🎬",
-    "mundo": "🌍",
-    "celebridades": "🧑‍🎤"
-}
-
-def salvar_titulos():
-    try:
-        with open("titulos_enviados.json", "w") as f:
-            json.dump(list(noticias_enviadas), f)
-    except:
-        pass
-
+# 📁 Carregar títulos já enviados
 def carregar_titulos():
     global noticias_enviadas
     try:
@@ -52,124 +36,55 @@ def carregar_titulos():
     except:
         noticias_enviadas = set()
 
-def conteudo_inadequado(texto):
-    texto = texto.lower()
-    palavras_18 = ["porn", "sexo", "sexual", "erótico", "nude", "nudes", "suicídio", "decapitação", "bestialismo", "incesto"]
-    return any(p in texto for p in palavras_18)
+# 💾 Salvar títulos enviados
+def salvar_titulos():
+    with open("titulos_enviados.json", "w") as f:
+        json.dump(list(noticias_enviadas), f)
 
-def resumir_texto(texto):
-    if not texto:
-        return "Resumo indisponível."
-    texto = texto.strip().replace("\n", " ")
-    if len(texto) > 200:
-        texto = texto[:200].rsplit(" ", 1)[0] + "..."
-    return texto
-
+# 🔍 Buscar notícia segura
 def buscar_noticia(tema):
-    query = palavras_chave.get(tema, tema)
+    query = temas_disponiveis.get(tema, tema)
     url = f"https://newsapi.org/v2/everything?q={query}&language=pt&sortBy=publishedAt&pageSize=10&apiKey={NEWSAPI_KEY}"
     resposta = requests.get(url)
     if resposta.status_code != 200:
         return None
-    dados = resposta.json()
-    artigos = dados.get("articles", [])
+    artigos = resposta.json().get("articles", [])
     for artigo in artigos:
         titulo = artigo.get("title", "")
         descricao = artigo.get("description", "")
-        imagem = artigo.get("urlToImage", "")
-        publicado = artigo.get("publishedAt", "")
-        if titulo in noticias_enviadas:
+        url = artigo.get("url", "")
+        if not titulo or titulo in noticias_enviadas:
             continue
-        if conteudo_inadequado(titulo) or conteudo_inadequado(descricao):
+        if any(p in titulo.lower() for p in ["sexo", "suicídio", "violência"]):
             continue
+        resumo = descricao if descricao else "Resumo indisponível."
+        if len(resumo) > 200:
+            resumo = resumo[:200].rsplit(" ", 1)[0] + "..."
         noticias_enviadas.add(titulo)
         salvar_titulos()
-        artigo["resumo"] = resumir_texto(descricao)
-        return artigo
+        return f"📰 *{titulo}*\n_{resumo}_\n[Leia mais]({url})"
     return None
 
-def buscar_noticia_manual(tema):
-    fontes = {
-        "politica": {
-            "titulo": "Ministro do Planalto nega saída do cargo",
-            "resumo": "Márcio Macêdo minimiza rumores e diz que nunca tratou saída com o presidente.",
-            "url": "https://www.metropoles.com/brasil/ministro-do-planalto-nega-saida-do-cargo"
-        }
-    }
-    if tema in fontes:
-        noticia = fontes[tema]
-        noticia["resumo"] = resumir_texto(noticia["resumo"])
-        noticia["title"] = noticia["titulo"]
-        noticia["urlToImage"] = None
-        return noticia
-    return None
-
-def enviar_link_util(bot, tema):
-    url = f"https://news.google.com/search?q={tema}"
-    texto = f"⚠️ Nenhuma notícia segura encontrada sobre *{tema}*. Veja mais em [Google News]({url})"
-    bot.send_message(chat_id=GROUP_ID, text=texto, parse_mode="Markdown")
-
-def enviar_noticia_formatada(bot, noticia, tema):
-    titulo = noticia.get("title", "Sem título")
-    resumo = noticia.get("resumo", "")
-    url = noticia.get("url", "")
-    imagem = noticia.get("urlToImage", None)
-    emoji = emojis_por_tema.get(tema, "📰")
-    texto = f"{emoji} *{tema.upper()}*\n\n📰 *{titulo}*\n_{resumo}_\n\n[Leia mais]({url})"
-    if imagem:
-        bot.send_photo(chat_id=GROUP_ID, photo=imagem, caption=texto, parse_mode="Markdown")
-    else:
-        bot.send_message(chat_id=GROUP_ID, text=texto, parse_mode="Markdown")
-
-def obter_noticia_segura(tema):
-    noticia = buscar_noticia(tema)
-    if noticia:
-        return noticia
-    noticia = buscar_noticia_manual(tema)
-    if noticia:
-        return noticia
-    return None
-
-def enviar_edicao(context):
-    frase = context["job"]["context"]["frase"]
-    temas_edicao = context["job"]["context"]["temas"]
-    bot = context["bot"]
-    bot.send_message(chat_id=GROUP_ID, text=frase)
-    for tema in temas_edicao:
-        noticia = obter_noticia_segura(tema)
-        if not noticia:
-            enviar_link_util(bot, tema)
-            continue
-        enviar_noticia_formatada(bot, noticia, tema)
-
-def comando_teste(update: Update, context):
-    global ultimo_teste
-    chat = update.effective_chat
-
-    if chat.type != "private" or chat.id != ADMIN_ID:
-        update.message.reply_text("Este comando só pode ser usado pelo administrador em chat privado.")
-        return
-
-    agora = time.time()
-    if agora - ultimo_teste < INTERVALO_TESTE:
-        update.message.reply_text("Aguarde um pouco antes de usar o comando novamente.")
-        return
-
-    ultimo_teste = agora
-    update.message.reply_text("conteúdo teste sendo enviado ao grupo")
-
-    try:
-        resposta = requests.get(ENDPOINT_EXECUTAR)
-        if resposta.status_code == 200:
-            update.message.reply_text("✅ Edição acionada com sucesso.")
-        else:
-            update.message.reply_text(f"⚠️ Erro ao acionar edição: {resposta.status_code}")
-    except Exception as e:
-        update.message.reply_text(f"❌ Falha na conexão: {e}")
-
-def main():
+# 📤 Enviar edição formatada
+def enviar_edicao(horario):
     carregar_titulos()
-    updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-    updater.dispatcher.add_handler(CommandHandler("teste", comando_teste))
-    updater.start_polling()
-    updater.idle()
+    temas = random.sample(list(temas_disponiveis.keys()), 2)
+    mensagens = [f"🗞️ Jornal Amizades — Edição das {horario}"]
+    for tema in temas:
+        noticia = buscar_noticia(tema)
+        if noticia:
+            mensagens.append(noticia)
+        else:
+            mensagens.append(f"⚠️ Nenhuma notícia segura encontrada sobre *{tema}*.")
+    texto_final = "\n\n".join(mensagens)
+    bot.send_message(chat_id=GROUP_ID, text=texto_final, parse_mode="Markdown")
+
+# ⏰ Agendamentos
+scheduler.add_job(lambda: enviar_edicao("07h50"), 'cron', hour=7, minute=50)
+scheduler.add_job(lambda: enviar_edicao("14h10"), 'cron', hour=14, minute=10)
+scheduler.add_job(lambda: enviar_edicao("21h20"), 'cron', hour=21, minute=20)
+
+# 🚀 Início
+if __name__ == "__main__":
+    print("Jornal Amizades iniciado.")
+    scheduler.start()
