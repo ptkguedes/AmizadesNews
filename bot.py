@@ -2,6 +2,7 @@ import os
 import json
 import random
 import requests
+import pytz
 from telegram import Bot
 from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 bot = Bot(token=TELEGRAM_TOKEN)
 scheduler = BlockingScheduler()
 noticias_enviadas = set()
+fuso_brasil = pytz.timezone("America/Sao_Paulo")
 
 # 🎯 Temas disponíveis
 temas_disponiveis = {
@@ -79,12 +81,24 @@ def enviar_edicao(horario):
     texto_final = "\n\n".join(mensagens)
     bot.send_message(chat_id=GROUP_ID, text=texto_final, parse_mode="Markdown")
 
-# ⏰ Agendamentos
-scheduler.add_job(lambda: enviar_edicao("07h50"), 'cron', hour=7, minute=50)
-scheduler.add_job(lambda: enviar_edicao("14h10"), 'cron', hour=14, minute=10)
-scheduler.add_job(lambda: enviar_edicao("21h20"), 'cron', hour=21, minute=20)
+# ⏰ Carregar horários do arquivo externo
+def carregar_horarios():
+    try:
+        with open("horarios.json", "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+# 🔁 Agendar edições
+def agendar_edicoes():
+    horarios = carregar_horarios()
+    for h in horarios:
+        hora, minuto = map(int, h["hora"].split(":"))
+        label = h["label"]
+        scheduler.add_job(lambda l=label: enviar_edicao(l), 'cron', hour=hora, minute=minuto, timezone=fuso_brasil)
 
 # 🚀 Início
 if __name__ == "__main__":
     print("Jornal Amizades iniciado.")
+    agendar_edicoes()
     scheduler.start()
