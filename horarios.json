@@ -1,6 +1,22 @@
 [
-  { "hora": "07:50", "label": "07h50" },
-  { "hora": "14:10", "label": "14h10" },
-  { "hora": "18:18", "label": "18:18" },
-  { "hora": "21:20", "label": "21h20" }
+  {
+    "hora": "07:50",
+    "label": "07h50",
+    "frase": "Bom dia! Comece sua manhã bem informado com os destaques mais frescos ☀️"
+  },
+  {
+    "hora": "14:10",
+    "label": "14h10",
+    "frase": "Boa tarde! Aqui estão as principais notícias que estão movimentando o dia 📰"
+  },
+  {
+    "hora": "18:18",
+    "label": "18:18",
+    "frase": "Fim de tarde informativo! Veja o que rolou nas últimas horas 🕔"
+  },
+  {
+    "hora": "21:20",
+    "label": "21h20",
+    "frase": "Boa noite! Últimas notícias para fechar o dia com informação 🌙"
+  }
 ]
