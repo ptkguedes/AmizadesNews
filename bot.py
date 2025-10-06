@@ -70,8 +70,11 @@ def buscar_noticia(tema):
 # 📤 Enviar edição formatada
 def enviar_edicao(horario):
     carregar_titulos()
+    horarios = carregar_horarios()
+    frase = next((h.get("frase") for h in horarios if h["label"] == horario), None)
+    introducao = frase if frase else f"🗞️ Jornal Amizades — Edição das {horario}"
     temas = random.sample(list(temas_disponiveis.keys()), 2)
-    mensagens = [f"🗞️ Jornal Amizades — Edição das {horario}"]
+    mensagens = [introducao]
     for tema in temas:
         noticia = buscar_noticia(tema)
         if noticia:
