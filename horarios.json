@@ -22,6 +22,11 @@
   {
     "hora": "21:20",
     "label": "21h20",
-    "frase": "Boa noite! Últimas notícias para fechar o dia com informação 🌙"
+    "frase": "Pra acompanhar o jantar ou o início da novela! 🍽️📺"
+  },
+  {
+    "hora": "00:05",
+    "label": "00h05",
+    "frase": "Últimas notícias da noite, até amanhã. 🌙🛌"
   }
 ]
