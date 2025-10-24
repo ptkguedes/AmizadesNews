@@ -57,7 +57,7 @@ def buscar_noticia(tema):
         url = artigo.get("url", "")
         if not titulo or titulo in noticias_enviadas:
             continue
-        if any(p in titulo.lower() for p in ["sexo", "suicídio", "violência"]):
+        if any(p in titulo.lower() for p in ["sexo" , "putaria" , "nudez" , "suicídio", "violência"]):
             continue
         resumo = descricao if descricao else "Resumo indisponível."
         if len(resumo) > 200:
