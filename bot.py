@@ -21,12 +21,18 @@ fuso_brasil = pytz.timezone("America/Sao_Paulo")
 
 # 🎯 Temas disponíveis
 temas_disponiveis = {
-    "politica": "política OR governo OR eleições",
-    "esporte": "esporte OR futebol OR campeonato",
-    "cultura": "cultura OR cinema OR música",
-    "mundo": "internacional OR ONU OR global",
-    "ciência": "ciência OR tecnologia OR descobertas",
-    "celebridades": "celebridades OR famosos OR artistas"
+    # Gatilho: Fofoca/Celebridades (Nichos Generalizados)
+    "pop": "pop culture OR buzz OR viral OR trends OR celebridades OR fofoca",
+    
+    # Gatilho: Entretenimento (Filmes/Séries)
+    "nerd": "cinema OR séries OR streaming OR netflix OR oscar OR marvel OR dc OR games",
+    
+    # Gatilho: Extremos Geopolíticos (A Guerra e o Impacto Econômico)
+    # Aqui está o segredo: buscamos o conflito AND o impacto no Brasil
+    "conflito": "guerra OR conflito OR geopolítica AND brasil economia OR combustíveis OR inflação",
+    
+    # Gatilho: Futebol (Paixão Nacional)
+    "futebol": "futebol OR libertadores OR brasileirão OR seleção brasileira OR transferência jogadores"
 }
 
 # 📁 Carregar títulos já enviados
